@@ -4,9 +4,9 @@ using System.ComponentModel;
 using System.IO;
 using System.Security.Cryptography;
 
-namespace TorrentUploader
+namespace TorrentFileCreator
 {
-  internal class Torrent
+  public class Torrent
   {
     private string[] fileList;
     private int pieceCount;
@@ -20,16 +20,16 @@ namespace TorrentUploader
       set => this.pieceCount = value;
     }
 
-    public Torrent(string dest, string passkey)
+    public Torrent(StreamWriter streamWriter, string passkey)
     {
       try
       {
-        this.torrentFile = new StreamWriter(dest);
+        this.torrentFile = streamWriter;
         this.m_PassKey = passkey;
       }
       catch (Exception ex)
       {
-        int num = (int) MessageBox.Show(ex.Message);
+        throw;
       }
       this.pieceSize = 32768;
     }
@@ -59,9 +59,9 @@ namespace TorrentUploader
       this.torrentFile.Write("e");
     }
 
-    public void BuilTorrent(BackgroundWorker bw, string dirDest)
+    public void Create(string sourceDirectory)
     {
-      string[] strArray = dirDest.Split('\\');
+      string[] strArray = sourceDirectory.Split('\\');
       try
       {
         this.torrentFile.Write("d");
@@ -70,21 +70,21 @@ namespace TorrentUploader
         this.torrentFile.Write(Convert.ToString(str.Length) + ":" + str);
         this.torrentFile.Write("4:info");
         this.torrentFile.Write("d");
-        this.BuildFileList(dirDest);
+        this.BuildFileList(sourceDirectory);
         this.torrentFile.Write("4:name");
         this.torrentFile.Write(strArray[strArray.Length - 1].Length.ToString() + ":" + strArray[strArray.Length - 1]);
         this.torrentFile.Write("12:piece length");
         this.CalculatePieceSize();
         this.torrentFile.Write("i" + this.pieceSize.ToString() + "e");
         this.torrentFile.Write("6:pieces");
-        this.WriteHashPieces(bw, dirDest);
+        this.WriteHashPieces();
         this.torrentFile.Write("7:privatei1e");
         this.torrentFile.Write("ee");
         this.torrentFile.Close();
       }
       catch (Exception ex)
       {
-        int num = (int) MessageBox.Show(ex.Message);
+        throw;
       }
     }
 
@@ -101,7 +101,7 @@ namespace TorrentUploader
       return this.pieceSize.ToString();
     }
 
-    private void WriteHashPieces(BackgroundWorker bw, string dirDest)
+    private void WriteHashPieces()
     {
       long num1 = 0;
       int num2 = 0;
@@ -142,8 +142,6 @@ namespace TorrentUploader
             byte[] hash = shA1.ComputeHash(buffer1);
             binaryWriter.Write(hash);
             ++num2;
-            double num4 = Math.Round((double) num2 / (double) this.PieceCount * 100.0);
-            bw.ReportProgress(Convert.ToInt32(num4));
             offset = 0;
             flag = false;
           }
@@ -161,7 +159,6 @@ namespace TorrentUploader
         byte[] hash = shA1.ComputeHash(buffer1, 0, count);
         binaryWriter.Write(hash);
       }
-      bw.ReportProgress(100);
     }
 
     private class FileDestComparer : IComparer
