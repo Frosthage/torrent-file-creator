@@ -19,7 +19,7 @@ namespace TorrentFileCreator.Tests
         {
             var md5 = MD5.Create();
             var fileStream = new MemoryStream();
-            var torrent = new Torrent(new StreamWriter(fileStream), null);
+            var torrent = new Torrent(new StreamWriter(fileStream));
             torrent.Create(GetTestContentFolder().FullName);
 
             var torrentFileHashValue = Convert.ToBase64String(md5.ComputeHash(fileStream.ToArray()));

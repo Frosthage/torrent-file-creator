@@ -1,147 +1,120 @@
 ﻿using System;
-using System.Collections;
-using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 
 namespace TorrentFileCreator
 {
   public class Torrent
   {
-    private string[] fileList;
-    private int pieceCount;
-    private int pieceSize;
-    private StreamWriter torrentFile;
-    private string m_PassKey;
+    private string[] _fileList;
+    private int _pieceSize;
+    private readonly StreamWriter _torrentFile;
+    public int PieceCount { get; private set; }
 
-    public int PieceCount
+    public Torrent(StreamWriter streamWriter)
     {
-      get => this.pieceCount;
-      set => this.pieceCount = value;
-    }
-
-    public Torrent(StreamWriter streamWriter, string passkey)
-    {
-      try
-      {
-        this.torrentFile = streamWriter;
-        this.m_PassKey = passkey;
-      }
-      catch (Exception ex)
-      {
-        throw;
-      }
-      this.pieceSize = 32768;
+      _torrentFile = streamWriter;
+      _pieceSize = 32768;
     }
 
     private void BuildFileList(string dirDest)
     {
       int length = dirDest.Split('\\').Length;
-      this.torrentFile.Write("5:files");
-      this.torrentFile.Write("l");
-      this.fileList = Directory.GetFiles(dirDest, "*.*", SearchOption.AllDirectories);
-      Array.Sort((Array) this.fileList, (IComparer) new Torrent.FileDestComparer());
-      foreach (string file in this.fileList)
+      _torrentFile.Write("5:files");
+      _torrentFile.Write("l");
+      _fileList = Directory.GetFiles(dirDest, "*.*", SearchOption.AllDirectories);
+      Array.Sort(_fileList, new FileDestComparer());
+      foreach (string file in _fileList)
       {
-        this.torrentFile.Write("d");
-        this.torrentFile.Write("6:length");
-        this.torrentFile.Write("i");
-        this.torrentFile.Write(new FileInfo(file).Length);
-        this.torrentFile.Write("e");
-        this.torrentFile.Write("4:path");
-        this.torrentFile.Write("l");
+        _torrentFile.Write("d");
+        _torrentFile.Write("6:length");
+        _torrentFile.Write("i");
+        _torrentFile.Write(new FileInfo(file).Length);
+        _torrentFile.Write("e");
+        _torrentFile.Write("4:path");
+        _torrentFile.Write("l");
         string[] strArray = file.Split('\\');
         for (int index = length; index < strArray.Length; ++index)
-          this.torrentFile.Write(Convert.ToString(strArray[index].Length) + ":" + strArray[index]);
-        this.torrentFile.Write("e");
-        this.torrentFile.Write("e");
+          _torrentFile.Write(Convert.ToString(strArray[index].Length) + ":" + strArray[index]);
+        _torrentFile.Write("e");
+        _torrentFile.Write("e");
       }
-      this.torrentFile.Write("e");
+      _torrentFile.Write("e");
     }
 
     public void Create(string sourceDirectory)
     {
       string[] strArray = sourceDirectory.Split('\\');
-      try
-      {
-        this.torrentFile.Write("d");
-        this.torrentFile.Write("8:announce");
-        string str = "http://tracker/announce";
-        this.torrentFile.Write(Convert.ToString(str.Length) + ":" + str);
-        this.torrentFile.Write("4:info");
-        this.torrentFile.Write("d");
-        this.BuildFileList(sourceDirectory);
-        this.torrentFile.Write("4:name");
-        this.torrentFile.Write(strArray[strArray.Length - 1].Length.ToString() + ":" + strArray[strArray.Length - 1]);
-        this.torrentFile.Write("12:piece length");
-        this.CalculatePieceSize();
-        this.torrentFile.Write("i" + this.pieceSize.ToString() + "e");
-        this.torrentFile.Write("6:pieces");
-        this.WriteHashPieces();
-        this.torrentFile.Write("7:privatei1e");
-        this.torrentFile.Write("ee");
-        this.torrentFile.Close();
-      }
-      catch (Exception ex)
-      {
-        throw;
-      }
+      _torrentFile.Write("d");
+      _torrentFile.Write("8:announce");
+      string str = "http://tracker/announce";
+      _torrentFile.Write(Convert.ToString(str.Length) + ":" + str);
+      _torrentFile.Write("4:info");
+      _torrentFile.Write("d");
+      BuildFileList(sourceDirectory);
+      _torrentFile.Write("4:name");
+      _torrentFile.Write(strArray[strArray.Length - 1].Length + ":" + strArray[strArray.Length - 1]);
+      _torrentFile.Write("12:piece length");
+      CalculatePieceSize();
+      _torrentFile.Write("i" + _pieceSize.ToString() + "e");
+      _torrentFile.Write("6:pieces");
+      WriteHashPieces();
+      _torrentFile.Write("7:privatei1e");
+      _torrentFile.Write("ee");
+      _torrentFile.Close();
     }
 
     private string CalculatePieceSize()
     {
-      long num = 0;
-      foreach (string file in this.fileList)
-        num += new FileInfo(file).Length;
+      
+      long num = _fileList.Sum(file => new FileInfo(file).Length);
       do
       {
-        this.pieceSize *= 2;
+        _pieceSize *= 2;
       }
-      while ((double) (num / (long) this.pieceSize) >= 1500.0);
-      return this.pieceSize.ToString();
+      while (num / _pieceSize >= 1500.0);
+      return _pieceSize.ToString();
     }
 
     private void WriteHashPieces()
     {
       long num1 = 0;
-      int num2 = 0;
-      foreach (string file in this.fileList)
+      foreach (string file in _fileList)
         num1 += new FileInfo(file).Length;
-      int num3 = (int) Math.Ceiling((double) num1 / (double) this.pieceSize);
-      this.PieceCount = num3;
-      this.torrentFile.Write(Convert.ToString(num3 * 20) + ":");
-      this.torrentFile.Flush();
-      BinaryWriter binaryWriter = new BinaryWriter(this.torrentFile.BaseStream);
-      byte[] buffer1 = new byte[this.pieceSize];
-      SHA1 shA1 = (SHA1) new SHA1Managed();
+      int num3 = (int) Math.Ceiling((double) num1 / _pieceSize);
+      PieceCount = num3;
+      _torrentFile.Write(Convert.ToString(num3 * 20) + ":");
+      _torrentFile.Flush();
+      BinaryWriter binaryWriter = new BinaryWriter(_torrentFile.BaseStream);
+      byte[] buffer1 = new byte[_pieceSize];
+      SHA1 shA1 = new SHA1Managed();
       int count = 0;
       int offset = 0;
-      DateTime now = DateTime.Now;
-      FileInfo fileInfo1 = new FileInfo(this.fileList[0]);
+      FileInfo fileInfo1 = new FileInfo(_fileList[0]);
       FileStream fileStream = fileInfo1.OpenRead();
       byte[] buffer2 = new byte[fileInfo1.Length];
-      IAsyncResult asyncResult = fileStream.BeginRead(buffer2, 0, (int) fileInfo1.Length, (AsyncCallback) null, (object) null);
-      for (int index = 1; index <= this.fileList.Length; ++index)
+      IAsyncResult asyncResult = fileStream.BeginRead(buffer2, 0, (int) fileInfo1.Length, null, null);
+      for (int index = 1; index <= _fileList.Length; ++index)
       {
         fileStream.EndRead(asyncResult);
         fileStream.Close();
         MemoryStream memoryStream = new MemoryStream(buffer2);
-        if (this.fileList.Length > index)
+        if (_fileList.Length > index)
         {
-          FileInfo fileInfo2 = new FileInfo(this.fileList[index]);
+          FileInfo fileInfo2 = new FileInfo(_fileList[index]);
           buffer2 = new byte[fileInfo2.Length];
           fileStream = fileInfo2.OpenRead();
-          asyncResult = fileStream.BeginRead(buffer2, 0, (int) fileInfo2.Length, (AsyncCallback) null, (object) null);
+          asyncResult = fileStream.BeginRead(buffer2, 0, (int) fileInfo2.Length, null, null);
         }
         bool flag;
         do
         {
-          count = memoryStream.Read(buffer1, offset, this.pieceSize - offset);
-          if (count == this.pieceSize || offset + count == this.pieceSize)
+          count = memoryStream.Read(buffer1, offset, _pieceSize - offset);
+          if (count == _pieceSize || offset + count == _pieceSize)
           {
             byte[] hash = shA1.ComputeHash(buffer1);
             binaryWriter.Write(hash);
-            ++num2;
             offset = 0;
             flag = false;
           }
@@ -158,24 +131,6 @@ namespace TorrentFileCreator
       {
         byte[] hash = shA1.ComputeHash(buffer1, 0, count);
         binaryWriter.Write(hash);
-      }
-    }
-
-    private class FileDestComparer : IComparer
-    {
-      public int Compare(object x, object y)
-      {
-        string[] strArray1 = (x as string).Split('\\');
-        string[] strArray2 = (y as string).Split('\\');
-        int num = Math.Min(strArray1.Length, strArray2.Length);
-        for (int index = 0; index < num - 1; ++index)
-        {
-          if (strArray1[index] != strArray2[index])
-            return string.Compare(strArray1[index], strArray2[index]);
-        }
-        if (strArray1.Length == strArray2.Length)
-          return string.Compare(strArray1[strArray1.Length - 1], strArray2[strArray2.Length - 1]);
-        return strArray1.Length < strArray2.Length ? 1 : -1;
       }
     }
   }
