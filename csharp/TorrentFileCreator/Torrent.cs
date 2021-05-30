@@ -104,8 +104,7 @@ namespace TorrentFileCreator
           count = openRead.Read(buffer1, offset, pieceSize - offset);
           if (count == pieceSize || offset + count == pieceSize)
           {
-            byte[] hash = shA1.ComputeHash(buffer1);
-            binaryWriter.Write(hash);
+            WriteHash(shA1, buffer1, binaryWriter);
             offset = 0;
             flag = false;
           }
@@ -123,6 +122,17 @@ namespace TorrentFileCreator
         byte[] hash = shA1.ComputeHash(buffer1, 0, count);
         binaryWriter.Write(hash);
       }
+    }
+
+    private static void WriteHash(SHA1 shA1, byte[] array, BinaryWriter binaryWriter)
+    {
+      Span<byte> hash = stackalloc byte[20];
+      shA1.TryComputeHash(array, hash, out var written);
+      if (written != 20)
+      {
+        throw new TorrentCreationException("Computed hash is expected to have the size of 20 bytes");
+      }
+      binaryWriter.Write(hash);
     }
   }
 }
