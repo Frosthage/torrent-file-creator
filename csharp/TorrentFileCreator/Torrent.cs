@@ -81,13 +81,13 @@ namespace TorrentFileCreator
 
     private void WriteHashPieces(int pieceSize)
     {
-      long num1 = 0;
-      foreach (string file in _fileList)
-        num1 += new FileInfo(file).Length;
-      int num3 = (int) Math.Ceiling((double) num1 / pieceSize);
-      PieceCount = num3;
-      _torrentFile.Write(Convert.ToString(num3 * 20) + ":");
+      long totalSize = _fileList.Sum(file => new FileInfo(file).Length);
+      
+      int pieceCount = (int) Math.Ceiling((double) totalSize / pieceSize);
+      PieceCount = pieceCount;
+      _torrentFile.Write(Convert.ToString(pieceCount * 20) + ":");
       _torrentFile.Flush();
+      
       BinaryWriter binaryWriter = new BinaryWriter(_torrentFile.BaseStream);
       byte[] buffer1 = new byte[pieceSize];
       SHA1 shA1 = new SHA1Managed();
