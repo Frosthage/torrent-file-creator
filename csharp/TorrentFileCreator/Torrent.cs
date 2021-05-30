@@ -8,14 +8,13 @@ namespace TorrentFileCreator
   public class Torrent
   {
     private string[] _fileList;
-    private int _pieceSize;
+
     private readonly StreamWriter _torrentFile;
     public int PieceCount { get; private set; }
 
     public Torrent(StreamWriter streamWriter)
     {
       _torrentFile = streamWriter;
-      _pieceSize = 32768;
     }
 
     private void BuildFileList(string dirDest)
@@ -40,6 +39,7 @@ namespace TorrentFileCreator
         _torrentFile.Write("e");
         _torrentFile.Write("e");
       }
+
       _torrentFile.Write("e");
     }
 
@@ -48,46 +48,48 @@ namespace TorrentFileCreator
       string[] strArray = sourceDirectory.Split('\\');
       _torrentFile.Write("d");
       _torrentFile.Write("8:announce");
-      string str = "http://tracker/announce";
-      _torrentFile.Write(Convert.ToString(str.Length) + ":" + str);
+      string url = "http://tracker/announce";
+      _torrentFile.Write(Convert.ToString(url.Length) + ":" + url);
       _torrentFile.Write("4:info");
       _torrentFile.Write("d");
       BuildFileList(sourceDirectory);
       _torrentFile.Write("4:name");
-      _torrentFile.Write(strArray[strArray.Length - 1].Length + ":" + strArray[strArray.Length - 1]);
+      _torrentFile.Write(strArray[^1].Length + ":" + strArray[^1]);
       _torrentFile.Write("12:piece length");
-      CalculatePieceSize();
-      _torrentFile.Write("i" + _pieceSize.ToString() + "e");
+      var pieceSize = CalculatePieceSize();
+      _torrentFile.Write($"i{pieceSize}e");
       _torrentFile.Write("6:pieces");
-      WriteHashPieces();
+      WriteHashPieces(pieceSize);
       _torrentFile.Write("7:privatei1e");
       _torrentFile.Write("ee");
       _torrentFile.Close();
     }
 
-    private string CalculatePieceSize()
+    private int CalculatePieceSize()
     {
-      
+      double pieceSize = 32768.0;
+      const double idealAmountOfPieces = 1500.0;
+
       long num = _fileList.Sum(file => new FileInfo(file).Length);
       do
       {
-        _pieceSize *= 2;
-      }
-      while (num / _pieceSize >= 1500.0);
-      return _pieceSize.ToString();
+        pieceSize *= 2;
+      } while (num / pieceSize >= idealAmountOfPieces);
+
+      return Convert.ToInt32(pieceSize);
     }
 
-    private void WriteHashPieces()
+    private void WriteHashPieces(int pieceSize)
     {
       long num1 = 0;
       foreach (string file in _fileList)
         num1 += new FileInfo(file).Length;
-      int num3 = (int) Math.Ceiling((double) num1 / _pieceSize);
+      int num3 = (int) Math.Ceiling((double) num1 / pieceSize);
       PieceCount = num3;
       _torrentFile.Write(Convert.ToString(num3 * 20) + ":");
       _torrentFile.Flush();
       BinaryWriter binaryWriter = new BinaryWriter(_torrentFile.BaseStream);
-      byte[] buffer1 = new byte[_pieceSize];
+      byte[] buffer1 = new byte[pieceSize];
       SHA1 shA1 = new SHA1Managed();
       int count = 0;
       int offset = 0;
@@ -107,11 +109,12 @@ namespace TorrentFileCreator
           fileStream = fileInfo2.OpenRead();
           asyncResult = fileStream.BeginRead(buffer2, 0, (int) fileInfo2.Length, null, null);
         }
+
         bool flag;
         do
         {
-          count = memoryStream.Read(buffer1, offset, _pieceSize - offset);
-          if (count == _pieceSize || offset + count == _pieceSize)
+          count = memoryStream.Read(buffer1, offset, pieceSize - offset);
+          if (count == pieceSize || offset + count == pieceSize)
           {
             byte[] hash = shA1.ComputeHash(buffer1);
             binaryWriter.Write(hash);
@@ -124,9 +127,9 @@ namespace TorrentFileCreator
             count = offset;
             flag = true;
           }
-        }
-        while (!flag);
+        } while (!flag);
       }
+
       if (count != 0)
       {
         byte[] hash = shA1.ComputeHash(buffer1, 0, count);
