@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -82,38 +83,25 @@ namespace TorrentFileCreator
     private void WriteHashPieces(int pieceSize)
     {
       long totalSize = _fileList.Sum(file => new FileInfo(file).Length);
-      
+
       int pieceCount = (int) Math.Ceiling((double) totalSize / pieceSize);
       PieceCount = pieceCount;
       _torrentFile.Write(Convert.ToString(pieceCount * 20) + ":");
       _torrentFile.Flush();
-      
+
       BinaryWriter binaryWriter = new BinaryWriter(_torrentFile.BaseStream);
       byte[] buffer1 = new byte[pieceSize];
       SHA1 shA1 = new SHA1Managed();
       int count = 0;
       int offset = 0;
-      FileInfo fileInfo1 = new FileInfo(_fileList[0]);
-      FileStream fileStream = fileInfo1.OpenRead();
-      byte[] buffer2 = new byte[fileInfo1.Length];
-      IAsyncResult asyncResult = fileStream.BeginRead(buffer2, 0, (int) fileInfo1.Length, null, null);
-      for (int index = 1; index <= _fileList.Length; ++index)
+      
+      foreach (var file in _fileList)
       {
-        fileStream.EndRead(asyncResult);
-        fileStream.Close();
-        MemoryStream memoryStream = new MemoryStream(buffer2);
-        if (_fileList.Length > index)
-        {
-          FileInfo fileInfo2 = new FileInfo(_fileList[index]);
-          buffer2 = new byte[fileInfo2.Length];
-          fileStream = fileInfo2.OpenRead();
-          asyncResult = fileStream.BeginRead(buffer2, 0, (int) fileInfo2.Length, null, null);
-        }
-
+        var openRead = File.OpenRead(file);
         bool flag;
         do
         {
-          count = memoryStream.Read(buffer1, offset, pieceSize - offset);
+          count = openRead.Read(buffer1, offset, pieceSize - offset);
           if (count == pieceSize || offset + count == pieceSize)
           {
             byte[] hash = shA1.ComputeHash(buffer1);
