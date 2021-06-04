@@ -9,7 +9,7 @@ namespace TorrentFileCreator
 {
     public class Torrent
     {
-        private string[] _fileList;
+        private FileInfo[] _fileList;
 
         private readonly StreamWriter _torrentFile;
         public int PieceCount { get; private set; }
@@ -24,18 +24,20 @@ namespace TorrentFileCreator
             int length = dirDest.Split('\\').Length;
             _torrentFile.Write("5:files");
             _torrentFile.Write("l");
-            _fileList = Directory.GetFiles(dirDest, "*.*", SearchOption.AllDirectories);
+
+            _fileList = new DirectoryInfo(dirDest).GetFiles("*.*", SearchOption.AllDirectories);
+            
             Array.Sort(_fileList, new FileDestComparer());
-            foreach (string file in _fileList)
+            foreach (FileInfo file in _fileList)
             {
                 _torrentFile.Write("d");
                 _torrentFile.Write("6:length");
                 _torrentFile.Write("i");
-                _torrentFile.Write(new FileInfo(file).Length);
+                _torrentFile.Write(file.Length);
                 _torrentFile.Write("e");
                 _torrentFile.Write("4:path");
                 _torrentFile.Write("l");
-                string[] strArray = file.Split('\\');
+                string[] strArray = file.FullName.Split('\\');
                 for (int index = length; index < strArray.Length; ++index)
                     _torrentFile.Write(Convert.ToString(strArray[index].Length) + ":" + strArray[index]);
                 _torrentFile.Write("e");
@@ -72,7 +74,7 @@ namespace TorrentFileCreator
             double pieceSize = 32768.0;
             const double idealAmountOfPieces = 1500.0;
 
-            long num = _fileList.Sum(file => new FileInfo(file).Length);
+            long num = _fileList.Sum(file => file.Length);
             do
             {
                 pieceSize *= 2;
@@ -83,7 +85,7 @@ namespace TorrentFileCreator
 
         private async Task WriteHashPieces(int pieceSize)
         {
-            long totalSize = _fileList.Sum(file => new FileInfo(file).Length);
+            long totalSize = _fileList.Sum(file => file.Length);
 
             int pieceCount = (int) Math.Ceiling((double) totalSize / pieceSize);
             PieceCount = pieceCount;
@@ -107,7 +109,7 @@ namespace TorrentFileCreator
             var buffer1 = blockingCollection.Take();
             foreach (var file in _fileList)
             {
-                var openRead = File.OpenRead(file);
+                var openRead = File.OpenRead(file.FullName);
                 bool flag;
                 do
                 {

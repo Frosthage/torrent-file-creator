@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.IO;
 
 namespace TorrentFileCreator
 {
@@ -7,8 +8,8 @@ namespace TorrentFileCreator
     {
         public int Compare(object x, object y)
         {
-            string[] strArray1 = (x as string).Split('\\');
-            string[] strArray2 = (y as string).Split('\\');
+            string[] strArray1 = (x as FileInfo).FullName.Split('\\');
+            string[] strArray2 = (y as FileInfo).FullName.Split('\\');
             int num = Math.Min(strArray1.Length, strArray2.Length);
             for (int index = 0; index < num - 1; ++index)
             {
