@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 
 namespace TorrentFileCreator
 {
@@ -43,7 +45,7 @@ namespace TorrentFileCreator
             _torrentFile.Write("e");
         }
 
-        public void Create(string sourceDirectory)
+        public async Task CreateAsync(string sourceDirectory)
         {
             string[] strArray = sourceDirectory.Split('\\');
             _torrentFile.Write("d");
@@ -59,7 +61,7 @@ namespace TorrentFileCreator
             var pieceSize = CalculatePieceSize();
             _torrentFile.Write($"i{pieceSize}e");
             _torrentFile.Write("6:pieces");
-            WriteHashPieces(pieceSize);
+            await WriteHashPieces(pieceSize);
             _torrentFile.Write("7:privatei1e");
             _torrentFile.Write("ee");
             _torrentFile.Close();
@@ -79,7 +81,7 @@ namespace TorrentFileCreator
             return Convert.ToInt32(pieceSize);
         }
 
-        private void WriteHashPieces(int pieceSize)
+        private async Task WriteHashPieces(int pieceSize)
         {
             long totalSize = _fileList.Sum(file => new FileInfo(file).Length);
 
@@ -89,11 +91,20 @@ namespace TorrentFileCreator
             _torrentFile.Flush();
 
             BinaryWriter binaryWriter = new BinaryWriter(_torrentFile.BaseStream);
-            byte[] buffer1 = new byte[pieceSize];
             SHA1 shA1 = new SHA1Managed();
             int count = 0;
             int offset = 0;
 
+            using BlockingCollection<byte[]> blockingCollection = new()
+            {
+                new byte[pieceSize], 
+                new byte[pieceSize]
+            };
+
+            int i = 0;
+            
+            Task writeHashTask = Task.CompletedTask;
+            var buffer1 = blockingCollection.Take();
             foreach (var file in _fileList)
             {
                 var openRead = File.OpenRead(file);
@@ -103,7 +114,9 @@ namespace TorrentFileCreator
                     count = openRead.Read(buffer1, offset, pieceSize - offset);
                     if (count == pieceSize || offset + count == pieceSize)
                     {
-                        WriteHash(shA1, buffer1, binaryWriter);
+                        await writeHashTask;
+                        writeHashTask = WriteHash(shA1, buffer1, binaryWriter, blockingCollection);
+                        buffer1 = blockingCollection.Take();
                         offset = 0;
                         flag = false;
                     }
@@ -115,24 +128,26 @@ namespace TorrentFileCreator
                     }
                 } while (!flag);
             }
-
+            
             if (count != 0)
             {
+                await writeHashTask;
                 byte[] hash = shA1.ComputeHash(buffer1, 0, count);
                 binaryWriter.Write(hash);
             }
         }
 
-        private static void WriteHash(SHA1 shA1, byte[] array, BinaryWriter binaryWriter)
+        private static async Task WriteHash(SHA1 shA1, byte[] array, BinaryWriter binaryWriter,
+            BlockingCollection<byte[]> blockingCollection)
         {
-            Span<byte> hash = stackalloc byte[20];
-            shA1.TryComputeHash(array, hash, out var written);
-            if (written != 20)
+            await Task.Run(() =>
             {
-                throw new TorrentCreationException("Computed hash is expected to have the size of 20 bytes");
-            }
-
-            binaryWriter.Write(hash);
+                Span<byte> hash = stackalloc byte[20];
+                shA1.TryComputeHash(array, hash, out _);
+              
+                binaryWriter.Write(hash);
+                blockingCollection.Add(array);
+            });
         }
     }
 }
