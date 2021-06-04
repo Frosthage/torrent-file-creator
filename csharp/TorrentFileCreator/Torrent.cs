@@ -27,7 +27,6 @@ namespace TorrentFileCreator
 
             _fileList = new DirectoryInfo(dirDest).GetFiles("*.*", SearchOption.AllDirectories);
             
-            Array.Sort(_fileList, new FileDestComparer());
             foreach (FileInfo file in _fileList)
             {
                 _torrentFile.Write("d");
