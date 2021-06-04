@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using TorrentFileCreator;
 
@@ -11,10 +12,13 @@ namespace TorrentFileCreate.Benchmarks
         private DirectoryInfo GetTestContentFolder([CallerFilePath] string callerFilePath = "")
         {
             return new(Path.Combine(callerFilePath, "../../../test-content"));
+            //return new(@"F:\test-content");
         }
 
         private readonly DirectoryInfo _testContentFolder;
-        
+        private MemoryStream _memoryStream;
+        private StreamWriter _streamWriter;
+
         public TorrentBenchmarks()
         {
             _testContentFolder = GetTestContentFolder();
@@ -23,14 +27,25 @@ namespace TorrentFileCreate.Benchmarks
             //var torrent = new Torrent()
         }
         
+        [IterationSetup]
+        public void Setup()
+        {
+            _memoryStream = new MemoryStream();
+            _streamWriter = new StreamWriter(_memoryStream);
+        }
         
         [Benchmark]
-        public void Create()
+        public async Task TestContentFolder()
         {
-            var memoryStream = new MemoryStream();
-            var streamWriter = new StreamWriter(memoryStream);
-            var torrent = new Torrent(streamWriter);
-            torrent.Create(_testContentFolder.FullName);
+            var torrent = new Torrent(_streamWriter);
+            await torrent.CreateAsync(_testContentFolder.FullName);
+        }
+        
+        [IterationCleanup]
+        public void Cleanup()
+        {
+            _streamWriter.Dispose();
+            _memoryStream.Dispose();
         }
     }
 }
