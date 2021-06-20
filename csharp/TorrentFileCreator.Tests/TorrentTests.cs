@@ -53,5 +53,18 @@ namespace TorrentFileCreator.Tests
             
  //1           torrentFileHashValue.ShouldBe("lKT0ZBMYgv3OzArI6Utytw==");
         }
+        
+        [Fact]
+        public async Task TEstststy()
+        {
+            var md5 = MD5.Create();
+            var fileStream = File.OpenWrite(@"test.torrent");
+            var torrent = new Torrent(new StreamWriter(fileStream));
+            await torrent.CreateAsync(GetTestContentFolder().FullName);
+            
+            //var torrentFileHashValue = Convert.ToBase64String(md5.ComputeHash(fileStream.ToArray()));
+            
+            //1           torrentFileHashValue.ShouldBe("lKT0ZBMYgv3OzArI6Utytw==");
+        }
     }
 }

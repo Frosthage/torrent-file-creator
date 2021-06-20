@@ -2,6 +2,7 @@ package torrent_test
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"testing"
@@ -12,11 +13,12 @@ import (
 func TestCreate(t *testing.T) {
 	f, _ := os.Create("apa.log")
 	defer f.Close()
-	writer := bufio.NewWriter(f)
+	var buf bytes.Buffer
+	writer := bufio.NewWriter(&buf)
 	err := torrent.Create("sdfsdf", writer)
 	if err != nil {
 		fmt.Println(":;olkdfgdkfg")
 	} else {
-		fmt.Println("ffffffffffff")
+		fmt.Println(buf.String())
 	}
 }
