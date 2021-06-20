@@ -19,13 +19,13 @@ namespace TorrentFileCreator
             _torrentFile = streamWriter;
         }
 
-        private void BuildFileList(string dirDest)
+        private void BuildFileList(DirectoryInfo sourceDir)
         {
-            int length = dirDest.Split('\\').Length;
+            int length = sourceDir.FullName.Split(Path.DirectorySeparatorChar).Length;
             _torrentFile.Write("5:files");
             _torrentFile.Write("l");
 
-            _fileList = new DirectoryInfo(dirDest).GetFiles("*.*", SearchOption.AllDirectories);
+            _fileList = sourceDir.GetFiles("*.*", SearchOption.AllDirectories);
             
             foreach (FileInfo file in _fileList)
             {
@@ -36,7 +36,7 @@ namespace TorrentFileCreator
                 _torrentFile.Write("e");
                 _torrentFile.Write("4:path");
                 _torrentFile.Write("l");
-                string[] strArray = file.FullName.Split('\\');
+                string[] strArray = file.FullName.Split(Path.DirectorySeparatorChar);
                 for (int index = length; index < strArray.Length; ++index)
                     _torrentFile.Write(Convert.ToString(strArray[index].Length) + ":" + strArray[index]);
                 _torrentFile.Write("e");
@@ -48,16 +48,16 @@ namespace TorrentFileCreator
 
         public async Task CreateAsync(string sourceDirectory)
         {
-            string[] strArray = sourceDirectory.Split('\\');
             _torrentFile.Write("d");
             _torrentFile.Write("8:announce");
             string url = "http://tracker/announce";
             _torrentFile.Write(Convert.ToString(url.Length) + ":" + url);
             _torrentFile.Write("4:info");
             _torrentFile.Write("d");
-            BuildFileList(sourceDirectory);
+            var directoryInfo = new DirectoryInfo(sourceDirectory);
+            BuildFileList(directoryInfo);
             _torrentFile.Write("4:name");
-            _torrentFile.Write(strArray[^1].Length + ":" + strArray[^1]);
+            _torrentFile.Write(directoryInfo.Name.Length + ":" + directoryInfo.Name);
             _torrentFile.Write("12:piece length");
             var pieceSize = CalculatePieceSize();
             _torrentFile.Write($"i{pieceSize}e");
