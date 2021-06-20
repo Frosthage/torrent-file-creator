@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 using Shouldly;
 using Xunit;
 
@@ -15,12 +16,12 @@ namespace TorrentFileCreator.Tests
         }
         
         [Fact]
-        public void Create_TestContentFolder_CorrectTorrent()
+        public async Task Create_TestContentFolder_CorrectTorrent()
         {
             var md5 = MD5.Create();
             var fileStream = new MemoryStream();
             var torrent = new Torrent(new StreamWriter(fileStream));
-            torrent.Create(GetTestContentFolder().FullName);
+            await torrent.CreateAsync(GetTestContentFolder().FullName);
 
             var torrentFileHashValue = Convert.ToBase64String(md5.ComputeHash(fileStream.ToArray()));
             
