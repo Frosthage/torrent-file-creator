@@ -9,9 +9,6 @@ type String string
 
 
 func Create(sourceDir string, w io.Writer) error {
-	header := getHeader()
-
-	writeHeader(sourceDir, w)
 	return nil
 
 
@@ -49,7 +46,7 @@ func getHeader() map[ByteString]Bencoder{
 
 	}
 	header["announce"] = ByteString("http://tracker/announce")
-
+	return header
 
 }
 
