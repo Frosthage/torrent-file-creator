@@ -2,51 +2,88 @@ package torrent
 
 import (
 	"io"
+	"os"
+	"path/filepath"
 )
 
-type String string
-
-
-
-func Create(sourceDir string, w io.Writer) error {
-	return nil
-
-
-
-
-
-	//string[] strArray = sourceDirectory.Split('\\')
-	//_torrentFile.Write("d")
-	//_torrentFile.Write("8:announce")
-	//string url = "http://tracker/announce"
-	//_torrentFile.Write(Convert.ToString(url.Length) + ":" + url)
-	//_torrentFile.Write("4:info")
-	//_torrentFile.Write("d")
-	//BuildFileList(sourceDirectory)
-	//_torrentFile.Write("4:name")
-	//_torrentFile.Write(strArray[^1].Length + ":" + strArray[^1])
-	//_torrentFile.Write("12:piece length")
-	//var pieceSize = CalculatePieceSize()
-	//_torrentFile.Write($"i{pieceSize}e")
-	//_torrentFile.Write("6:pieces")
-	//await WriteHashPieces(pieceSize)
-	//_torrentFile.Write("7:privatei1e")
-	//_torrentFile.Write("ee")
-	//_torrentFile.Close()
-
-
-}
-
-func getHeader() map[ByteString]Bencoder{
-	header := Dictionary{
-		"announce": ByteString("http://tracker/announce"),
-		"info": Dictionary{
-			
-		},
-
+func Create(srcDir string, w io.Writer) error {
+	header, err := getHeader(srcDir)
+	if err != nil {
+		return err
 	}
-	header["announce"] = ByteString("http://tracker/announce")
-	return header
-
+	return header.Write(w)
 }
+
+func getHeader(srcDir string) (Dictionary, error) {
+	files, err := getFiles(srcDir)
+	if err != nil {
+		return nil, err
+	}
+	srcDirSize := sumFileSize(files)
+	pieceLength := calculatePieceLength(srcDirSize)
+	torrentFile := Dictionary{
+		"announce": ByteString("http://tracker/announce"),
+		"info": Dictionary {
+			"files":        fileList{
+				files:  files,
+				srcDir: srcDir,
+			},
+			"name":         ByteString(filepath.Base(srcDir)),
+			"piece length": pieceLength,
+			"pieces": pieces{
+				Files:     files,
+				PieceSize: uint64(pieceLength),
+				SrcDirSize: srcDirSize,
+			},
+			"private": Integer(1),
+		},
+	}
+	return torrentFile, nil
+}
+
+func calculatePieceLength(size int64) Integer {
+	pieceSize := 32768.0
+	const idealAmountOfPieces = 1500.0
+	sizef := float64(size)
+	for sizef/pieceSize > idealAmountOfPieces {
+		pieceSize *= 2
+	}
+	return Integer(pieceSize)
+}
+
+func getFiles1(srcDir string) (int64, List, error) {
+	srcDir, err := filepath.Abs(srcDir)
+	if err != nil {
+		return 0, nil, err
+	}
+	var totalSize int64 = 0
+	result := List{}
+	err = filepath.Walk(srcDir,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			totalSize += info.Size()
+			result = append(result, Dictionary{
+				"length":Integer(info.Size()),
+				"path": getFilePath(srcDir, path),
+			})
+			return nil
+		})
+	return totalSize, result, err
+}
+
+
+
+
+
+
+
+
+
+
+
 
