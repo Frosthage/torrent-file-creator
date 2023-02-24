@@ -23,6 +23,10 @@ namespace TorrentFileCreator.Tests
             var torrent = new Torrent(new StreamWriter(fileStream));
             await torrent.CreateAsync(GetTestContentFolder().FullName);
 
+            await using var stream = new FileStream("apa2.torrent", FileMode.Create);
+            stream.Write(fileStream.GetBuffer());
+
+
             var torrentFileHashValue = Convert.ToBase64String(md5.ComputeHash(fileStream.ToArray()));
             
             torrentFileHashValue.ShouldBe("lKT0ZBMYgv3OzArI6Utytw==");
